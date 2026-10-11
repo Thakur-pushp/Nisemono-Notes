@@ -21,9 +21,21 @@ body{
     justify-content: flex-end;
 }
 
+#search{
+    display: flex;
+    height: 20px;
+    margin: 1rem;
+    margin-top: 2rem;
+    flex: 1;
+    font-weight: bolder;
+    color: ivory;
+    background-color: orangered;
+}
+
 #newNote{
     width: 120px;
     height: 60px;
+    margin: 1rem;
     border-radius: 15%;
     font-size: 1rem;
     background-color: orangered;

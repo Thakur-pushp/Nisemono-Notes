@@ -34,6 +34,21 @@ def create_note():
     return jsonify({"status": "success"}), 201
   return jsonify({"error": "Title or message missing"}), 400
 
+@app.route("/notes/search", methods=["GET"])
+def search_notes():
+  import sqlite3
+
+  keyword = request.args.get("q", "")
+  conn = sqlite3.connect("notes.db")
+  cursor = conn.cursor()
+  query = "SELECT id, title, message FROM notes WHERE title LIKE ? OR message LIKE ? ORDER BY id DESC"
+  cursor.execute(query, (f"%{keyword}%", f"%{keyword}%"))
+  rows = cursor.fetchall()
+  conn.close()
+
+  notes = [{"id": r[0], "title": r[1], "message": r[2]} for r in rows]
+  return jsonify(notes)
+
 
 if __name__ == "__main__":
   app.run(debug=True, port=5000)
