@@ -47,7 +47,7 @@ def updatenotes():
     conn = sqlite3.connect("notes.db")
     cursor = conn.cursor()
     querry = "SELECT * FROM notes WHERE title LIKE ? OR message LIKE ? ORDER BY id DESC"
-    cursor.execute(querry, (f"{keyword}", f"{keyword}"))
+    cursor.execute(querry, (f"%{keyword}%", f"%{keyword}%"))
     display = cursor.fetchall()
 
     if not display:
@@ -60,22 +60,37 @@ def updatenotes():
     conn.close()
 
 
-def deletenotes(todelete):
-    conn = sqlite3.connect("notes.db")
-    cursor = conn.cursor()
-    # querry = "DELETE FROM notes WHERE title LIKE ? OR message LIKE ?"
-    querry = "SELECT * FROM notes WHERE title LIKE ? OR message LIKE ? ORDER BY id DESC"
-    cursor.execute(querry, (f"{todelete}", f"{todelete}"))
-    display = cursor.fetchall()
 
-    if not display:
-        print("Nothing Found")
-        conn.close()
-    else:
-        id_to_delete = display[0][0]
-        cursor.execute("DELETE FROM notes WHERE id = ?", f"{id_to_delete}")
-        print("Row deleted!")
+def deletenotes(todelete):
+    conn = sqlite3.connect("notes.db", timeout=10)
+
+    try:
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """SELECT id FROM notes
+               WHERE title LIKE ? OR message LIKE ?
+               ORDER BY id DESC""",
+            (f"%{todelete}%", f"%{todelete}%")
+        )
+
+        row = cursor.fetchone()
+
+        if row is None:
+            print("Nothing Found")
+            return
+
+        cursor.execute(
+            "DELETE FROM notes WHERE id = ?",
+            (row[0],)
+        )
+
         conn.commit()
+        print("Row deleted!")
+
+    finally:
+        conn.close()
+
 
 
 def searchnotes():
@@ -83,7 +98,7 @@ def searchnotes():
     conn = sqlite3.connect("notes.db")
     cursor = conn.cursor()
     querry = "SELECT * FROM notes WHERE title LIKE ? OR message LIKE ? ORDER BY id DESC"
-    cursor.execute(querry, (f"{keyword}", f"{keyword}"))
+    cursor.execute(querry, (f"%{keyword}%", f"%{keyword}%"))
     display = cursor.fetchall()
     conn.close()
 

@@ -30,9 +30,55 @@ def create_note():
   title = data.get("title", "")
   message = data.get("message", "")
   if title and message:
-    Backend.addnotes(title, message)
-    return jsonify({"status": "success"}), 201
+    
+    import sqlite3
+
+    # Inside create_note(), after validating title and message:
+    with sqlite3.connect("notes.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO notes (title, message) VALUES (?, ?)",
+            (title, message)
+        )
+        note_id = cursor.lastrowid
+
+    return jsonify({
+        "status": "success",
+        "id": note_id
+    }), 201
+
   return jsonify({"error": "Title or message missing"}), 400
+
+
+
+
+@app.route("/notes/<int:note_id>", methods=["DELETE"])
+def delete_note(note_id):
+    import sqlite3
+
+    try:
+        with sqlite3.connect("notes.db", timeout=10) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "DELETE FROM notes WHERE id = ?",
+                (note_id,)
+            )
+
+            if cursor.rowcount == 0:
+                return jsonify({
+                    "error": "Note not found"
+                }), 404
+
+        return jsonify({"status": "success"}), 200
+
+    except sqlite3.OperationalError as error:
+        return jsonify({
+            "error": str(error)
+        }), 500
+
+
+
 
 @app.route("/notes/search", methods=["GET"])
 def search_notes():
@@ -48,6 +94,43 @@ def search_notes():
 
   notes = [{"id": r[0], "title": r[1], "message": r[2]} for r in rows]
   return jsonify(notes)
+
+
+
+
+@app.route("/notes/<int:note_id>", methods=["PUT"])
+def update_note(note_id):
+    import sqlite3
+
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    title = data.get("title", "").strip()
+    message = data.get("message", "").strip()
+
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+
+    try:
+        with sqlite3.connect("notes.db", timeout=10) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "UPDATE notes SET title = ?, message = ? WHERE id = ?",
+                (title, message, note_id)
+            )
+
+            if cursor.rowcount == 0:
+                return jsonify({"error": "Note not found"}), 404
+
+        return jsonify({"status": "success"}), 200
+
+    except sqlite3.OperationalError as error:
+        return jsonify({"error": str(error)}), 500
+
+
 
 
 if __name__ == "__main__":

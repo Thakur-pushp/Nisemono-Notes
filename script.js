@@ -18,50 +18,110 @@ async function fetchNotes() {
 }
 
 // Helper function to render a note card
+
 function appendNoteCard(id = null, title = "", message = "") {
-    const note = document.createElement('div');
-    note.classList.add('note-card');
+    const note = document.createElement("div");
+    note.classList.add("note-card");
 
-    note.innerHTML = `
-        <div class="tools">
-            <button class="delete-btn"><i class="fas fa-trash"></i> Delete</button>
-        </div>
-        <input type="text" class="note-title" placeholder="Title..." value="${title}">
-        <textarea placeholder="Write your note here...">${message}</textarea>
-    `;
+    const tools = document.createElement("div");
+    tools.className = "tools";
 
-    const titleInput = note.querySelector('.note-title');
-    const textarea = note.querySelector('textarea');
-    const deleteBtn = note.querySelector('.delete-btn');
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "delete-btn";
+    deleteBtn.textContent = "Delete";
 
-    // Save note to database when user finishes typing and leaves the field (blur)
-    const saveNote = async () => {
+    const titleInput = document.createElement("input");
+    titleInput.className = "note-title";
+    titleInput.placeholder = "Title...";
+    titleInput.value = title;
+
+    const textarea = document.createElement("textarea");
+    textarea.placeholder = "Write your note here...";
+    textarea.value = message;
+
+    tools.appendChild(deleteBtn);
+    note.append(tools, titleInput, textarea);
+    mainContainer.appendChild(note);
+
+    let noteId = id;
+    let savePromise = null;
+
+    async function saveNote() {
         const t = titleInput.value.trim();
         const m = textarea.value.trim();
-        if (t || m) {
-            await fetch('http://127.0.0.1:5000/notes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: t || "Untitled", message: m })
-            });
-        }
-    };
 
-    titleInput.addEventListener('blur', saveNote);
-    textarea.addEventListener('blur', saveNote);
+        if (!t || !m) return;
 
-    // Delete Note Logic
-    deleteBtn.addEventListener('click', async () => {
-        if (id) {
-            await fetch(`http://127.0.0.1:5000/notes/${id}`, {
-                method: 'DELETE'
-            });
+        // Avoid creating duplicate notes during overlapping blur events.
+        if (savePromise) {
+            return;
         }
-        note.remove();
+
+        const isNew = noteId === null;
+        const url = isNew
+            ? "http://127.0.0.1:5000/notes"
+            : `http://127.0.0.1:5000/notes/${noteId}`;
+
+        savePromise = (async () => {
+            const response = await fetch(url, {
+                method: isNew ? "POST" : "PUT",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    title: t || "Untitled",
+                    message: m
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || "Could not save note");
+            }
+
+            if (isNew) {
+                noteId = result.id;
+            }
+        })();
+
+        try {
+            await savePromise;
+        } catch (error) {
+            console.error("Save failed:", error);
+        } finally {
+            savePromise = null;
+        }
+    }
+
+    titleInput.addEventListener("blur", saveNote);
+    textarea.addEventListener("blur", saveNote);
+
+    deleteBtn.addEventListener("click", async () => {
+        if (noteId === null) {
+            note.remove();
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `http://127.0.0.1:5000/notes/${noteId}`,
+                { method: "DELETE" }
+            );
+
+            if (!response.ok) {
+                const result = await response.json();
+                throw new Error(result.error || "Delete failed");
+            }
+
+            note.remove();
+        } catch (error) {
+            console.error("Delete failed:", error);
+            alert("Note delete nahi hua. Flask terminal check karo.");
+        }
     });
-
-    mainContainer.appendChild(note);
 }
+
 
 // Search functionality: Triggers when user types and presses Enter
 searchInput.addEventListener('keydown', async (e) => {
@@ -88,3 +148,4 @@ addBtn.addEventListener('click', () => {
 
 // Initialize on page load
 fetchNotes();
+
